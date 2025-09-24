@@ -170,7 +170,8 @@ local function handler(params)
     vim.api.nvim_buf_set_mark(0, ">", end_pos[1], end_pos[2], {})
     vim.cmd("normal! gv")
 
-    message = "Opened file and selected lines " .. start_line .. " to " .. end_line
+    local clickable_ref = file_path .. ":" .. start_line .. ":" .. end_line
+    message = "Opened file and selected lines " .. start_line .. " to " .. end_line .. " (" .. clickable_ref .. ")"
   end
 
   -- Handle text pattern selection

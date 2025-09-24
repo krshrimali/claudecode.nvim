@@ -365,6 +365,14 @@ function M.setup(opts)
   local diff = require("claudecode.diff")
   diff.setup(M.state.config)
 
+  -- Setup terminal links for clickable references
+  local terminal_links_ok, terminal_links = pcall(require, "claudecode.terminal_links")
+  if terminal_links_ok then
+    terminal_links.setup(M.state.config.terminal_links or {})
+  else
+    logger.warn("init", "Failed to load terminal_links module: " .. tostring(terminal_links))
+  end
+
   if M.state.config.auto_start then
     M.start(false) -- Suppress notification on auto-start
   end
@@ -1047,6 +1055,141 @@ function M._create_commands()
     nargs = "*",
     desc = "Select and open Claude terminal with chosen model and optional arguments",
   })
+
+  -- Terminal links commands
+  local terminal_links_ok, terminal_links = pcall(require, "claudecode.terminal_links")
+  if terminal_links_ok then
+    vim.api.nvim_create_user_command("ClaudeCodeLinksEnable", function()
+      terminal_links.enable()
+      vim.notify("Claude Code terminal links enabled", vim.log.levels.INFO)
+    end, {
+      desc = "Enable clickable links in Claude Code terminal output",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksDisable", function()
+      terminal_links.disable()
+      vim.notify("Claude Code terminal links disabled", vim.log.levels.INFO)
+    end, {
+      desc = "Disable clickable links in Claude Code terminal output",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksSetup", function()
+      terminal_links.setup_current_buffer()
+    end, {
+      desc = "Manually setup clickable links for current terminal buffer",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksStatus", function()
+      local status = terminal_links.get_status()
+      local msg = string.format(
+        "Terminal Links: %s\nActive buffers: %d\nBuffers: %s",
+        status.enabled and "Enabled" or "Disabled",
+        status.buffer_count,
+        table.concat(status.active_buffers, ", ")
+      )
+      vim.notify(msg, vim.log.levels.INFO)
+    end, {
+      desc = "Show status of clickable links in terminal buffers",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeSetClickableContext", function()
+      -- Use the setClickableContext tool to provide formatting hints
+      local tools_ok, tools = pcall(require, "claudecode.tools.set_clickable_context")
+      if tools_ok and tools.handler then
+        local success, result = pcall(tools.handler, { enable_hints = true })
+        if success and result.content and result.content[1] then
+          vim.notify("✅ Clickable context set! Ask Claude to use full file paths for variables.", vim.log.levels.INFO)
+          
+          -- Show an example prompt
+          local example_prompt = [[
+💡 EXAMPLE PROMPT FOR CLAUDE:
+"Please use the setClickableContext tool first, then explain the config variable. 
+Always include full file paths like `config.py:25` instead of just `config` 
+so everything is clickable in Neovim."
+          ]]
+          vim.notify(example_prompt, vim.log.levels.INFO)
+          
+          -- Optionally send this context to Claude via the terminal
+          local terminal_ok, terminal = pcall(require, "claudecode.terminal")
+          if terminal_ok then
+            terminal.ensure_visible()
+          end
+        end
+      else
+        vim.notify("Failed to set clickable context", vim.log.levels.ERROR)
+      end
+    end, {
+      desc = "Set context for Claude to generate clickable references with full file paths",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodePromptExample", function()
+      local example_prompts = {
+        "🎯 EXAMPLES OF GOOD PROMPTS FOR CLICKABLE REFERENCES:",
+        "",
+        "Instead of:",
+        '  "What does the config variable do?"',
+        "",
+        "Try:",
+        '  "Please use full file paths. What does the config variable in `config.py:25` do?"',
+        "",
+        "Or:",
+        '  "Use the setClickableContext tool, then explain the handle_request function with its full file path."',
+        "",
+        "Or:",
+        '  "Show me the error_handler function. Please include the full path like `utils.py:150`."',
+        "",
+        "🔗 This makes everything clickable for instant navigation!"
+      }
+      
+      vim.notify(table.concat(example_prompts, "\n"), vim.log.levels.INFO)
+    end, {
+      desc = "Show examples of prompts that generate clickable references",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeSendContext", function()
+      -- Manually send clickable context to Claude
+      local context_message = [[Please format all variable and function references with their full file paths for maximum clickability in Neovim.
+
+CRITICAL FORMATTING RULES:
+• Instead of just `variable_name`, use `file.py:line` (clickable!)
+• Instead of just `function_name`, use `utils.py:150` (clickable!)
+• Always include file paths and line numbers when referencing code
+• Format: `filename.ext:line_number` or `path/to/file.py:line:col`
+
+Examples:
+- "The `config` variable in `settings.py:25` controls..."
+- "Check the `handle_request` function at `server.py:45`"
+- "Error in `utils.py:150` - the validation logic needs updating"
+
+This makes everything clickable for instant navigation! Please use this format in all your responses.]]
+
+      -- Create a temporary file with the context message
+      local temp_file = vim.fn.tempname() .. ".md"
+      local file = io.open(temp_file, "w")
+      if file then
+        file:write("# Clickable Links Context\n\n")
+        file:write(context_message)
+        file:close()
+        
+        -- Send the context file as an @ mention
+        local success, error_msg = M.send_at_mention(temp_file, nil, nil, "manual_context")
+        if success then
+          vim.notify("✅ Sent clickable context to Claude! Variables should now include full file paths.", vim.log.levels.INFO)
+          
+          -- Clean up temp file after a delay
+          vim.defer_fn(function()
+            pcall(os.remove, temp_file)
+          end, 5000)
+        else
+          vim.notify("❌ Failed to send context: " .. (error_msg or "unknown"), vim.log.levels.ERROR)
+        end
+      else
+        vim.notify("❌ Failed to create context file", vim.log.levels.ERROR)
+      end
+    end, {
+      desc = "Manually send clickable context instructions to Claude",
+    })
+  end
 end
 
 M.open_with_model = function(additional_args)

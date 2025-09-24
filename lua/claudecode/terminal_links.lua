@@ -300,9 +300,11 @@ function M.auto_set_clickable_context(bufnr)
         -- Add a visual indicator in the terminal buffer
         local indicator_lines = {
           "",
-          "# 🔗 Clickable Links Context Set",
-          "# Claude will now format references with backticks for clickability",
-          "# Examples: `variable_name`, `function()`, `file.py:42`",
+          "# 🔗 CLICKABLE LINKS CONTEXT ACTIVATED",
+          "# Claude will now provide FULL FILE PATHS for maximum clickability:",
+          "# ✅ Use: `config.py:25` instead of just `config`",
+          "# ✅ Use: `utils.py:150` instead of just `function_name`", 
+          "# ✅ Everything should be clickable with file paths!",
           ""
         }
         

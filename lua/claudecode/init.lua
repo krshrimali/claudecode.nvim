@@ -1098,26 +1098,52 @@ function M._create_commands()
       if tools_ok and tools.handler then
         local success, result = pcall(tools.handler, { enable_hints = true })
         if success and result.content and result.content[1] then
-          -- Send the context as an @ mention to Claude
-          local context_text = result.content[1].text
-          vim.notify("Clickable context set! Claude will now format references for better interaction.", vim.log.levels.INFO)
+          vim.notify("✅ Clickable context set! Ask Claude to use full file paths for variables.", vim.log.levels.INFO)
+          
+          -- Show an example prompt
+          local example_prompt = [[
+💡 EXAMPLE PROMPT FOR CLAUDE:
+"Please use the setClickableContext tool first, then explain the config variable. 
+Always include full file paths like `config.py:25` instead of just `config` 
+so everything is clickable in Neovim."
+          ]]
+          vim.notify(example_prompt, vim.log.levels.INFO)
           
           -- Optionally send this context to Claude via the terminal
           local terminal_ok, terminal = pcall(require, "claudecode.terminal")
           if terminal_ok then
-            -- Ensure terminal is visible
             terminal.ensure_visible()
-            vim.defer_fn(function()
-              -- Send a message about the context
-              vim.notify("Context sent to Claude. References will now be clickable!", vim.log.levels.INFO)
-            end, 500)
           end
         end
       else
         vim.notify("Failed to set clickable context", vim.log.levels.ERROR)
       end
     end, {
-      desc = "Set context for Claude to generate clickable references",
+      desc = "Set context for Claude to generate clickable references with full file paths",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodePromptExample", function()
+      local example_prompts = {
+        "🎯 EXAMPLES OF GOOD PROMPTS FOR CLICKABLE REFERENCES:",
+        "",
+        "Instead of:",
+        '  "What does the config variable do?"',
+        "",
+        "Try:",
+        '  "Please use full file paths. What does the config variable in `config.py:25` do?"',
+        "",
+        "Or:",
+        '  "Use the setClickableContext tool, then explain the handle_request function with its full file path."',
+        "",
+        "Or:",
+        '  "Show me the error_handler function. Please include the full path like `utils.py:150`."',
+        "",
+        "🔗 This makes everything clickable for instant navigation!"
+      }
+      
+      vim.notify(table.concat(example_prompts, "\n"), vim.log.levels.INFO)
+    end, {
+      desc = "Show examples of prompts that generate clickable references",
     })
   end
 end

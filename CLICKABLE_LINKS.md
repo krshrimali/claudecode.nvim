@@ -98,7 +98,10 @@ Manually setup clickable links for the current terminal buffer.
 Show status information about active link setups.
 
 ### `:ClaudeCodeSetClickableContext`
-Manually set context for Claude to generate clickable references.
+Manually set context for Claude to generate clickable references with full file paths.
+
+### `:ClaudeCodePromptExample`
+Show examples of effective prompts that generate clickable references.
 
 ### `:testLinks`
 Generate test output with various clickable reference types (available as Claude tool).
@@ -139,10 +142,17 @@ Instead of asking:
 > "What does the config variable do?"
 
 Ask:
-> "Please use backticks around variable names. What does the `config` variable do?"
+> "Please use full file paths. What does the config variable in `config.py:25` do?"
 
 Or:
-> "Explain the `handle_request` function and how it uses the `settings` object."
+> "Use the setClickableContext tool, then explain the handle_request function with its full file path."
+
+Or:
+> "Show me the error_handler function. Please include the full path like `utils.py:150`."
+
+### Why Full Paths Matter
+- `config` → just searchable symbol
+- `config.py:25` → **clickable file reference** that opens directly at line 25!
 
 ## Troubleshooting
 

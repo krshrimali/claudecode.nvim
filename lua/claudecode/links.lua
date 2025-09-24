@@ -17,8 +17,14 @@ local PATTERNS = {
     [[%w+[%w%._%-/]*//[%w%._%-/]+%.%w+:?%d*:?%d*]],
     -- Complex paths with multiple segments
     [[%w+[%w%._%-/]+%.%w+:?%d*:?%d*]],
-    -- Simple filename with extension
-    [[%w+%.%w+:?%d*:?%d*]],
+    -- Simple filename with extension and line numbers
+    [[%w+%.%w+:%d+:?%d*]],
+    -- Just filename with extension (no line numbers)
+    [[%w+%.%w+]],
+    -- Paths in backticks (common in Claude responses)
+    [[`[%w%._%-/]+%.%w+:?%d*:?%d*`]],
+    -- Paths with underscores and more special chars
+    [[%w+[%w%._%-_/]+%.%w+:?%d*:?%d*]],
   },
   -- URLs
   url = {
@@ -101,8 +107,11 @@ end
 ---@param text string The text to parse
 ---@return table? parsed_ref Table with file, line, col if valid reference found
 local function parse_file_reference(text)
+  -- Remove surrounding backticks if present
+  local clean_text = text:gsub("^`", ""):gsub("`$", "")
+  
   -- Try to match file:line:col pattern
-  local file, line, col = text:match("^(.+):(%d+):(%d+)$")
+  local file, line, col = clean_text:match("^(.+):(%d+):(%d+)$")
   if file and line and col then
     return {
       file = file,
@@ -112,7 +121,7 @@ local function parse_file_reference(text)
   end
   
   -- Try to match file:line pattern
-  file, line = text:match("^(.+):(%d+)$")
+  file, line = clean_text:match("^(.+):(%d+)$")
   if file and line then
     return {
       file = file,
@@ -122,9 +131,9 @@ local function parse_file_reference(text)
   end
   
   -- Just a file path
-  if text:match("%.%w+$") then -- Has file extension
+  if clean_text:match("%.%w+$") then -- Has file extension
     return {
-      file = text,
+      file = clean_text,
       line = nil,
       col = nil
     }

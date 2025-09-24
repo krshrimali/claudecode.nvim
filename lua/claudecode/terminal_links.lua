@@ -290,35 +290,75 @@ function M.auto_set_clickable_context(bufnr)
     
     logger.debug("terminal_links", "Auto-setting clickable context for buffer: " .. bufnr)
     
-    -- Use the setClickableContext tool to provide formatting guidance
-    local tools_ok, tools = pcall(require, "claudecode.tools.set_clickable_context")
-    if tools_ok and tools.handler then
-      local success, result = pcall(tools.handler, { enable_hints = true })
-      if success and result.content and result.content[1] then
-        local context_text = result.content[1].text
+    -- Send an actual message to Claude about clickable formatting
+    local context_message = [[Please format all variable and function references with their full file paths for maximum clickability in Neovim. 
+
+CRITICAL FORMATTING RULES:
+• Instead of just `variable_name`, use `file.py:line` (clickable!)
+• Instead of just `function_name`, use `utils.py:150` (clickable!)
+• Always include file paths and line numbers when referencing code
+• Format: `filename.ext:line_number` or `path/to/file.py:line:col`
+
+Examples:
+- "The `config` variable in `settings.py:25` controls..."
+- "Check the `handle_request` function at `server.py:45`"
+- "Error in `utils.py:150` - the validation logic needs updating"
+
+This makes everything clickable for instant navigation! Please use this format in all your responses.]]
+
+    -- Try to send this as an actual message to Claude via the @ mention system
+    local claudecode_main_ok, claudecode_main = pcall(require, "claudecode")
+    if claudecode_main_ok and claudecode_main.send_at_mention then
+      -- Create a temporary file with the context message
+      local temp_file = vim.fn.tempname() .. ".md"
+      local file = io.open(temp_file, "w")
+      if file then
+        file:write("# Clickable Links Context\n\n")
+        file:write(context_message)
+        file:close()
         
-        -- Add a visual indicator in the terminal buffer
-        local indicator_lines = {
-          "",
-          "# 🔗 CLICKABLE LINKS CONTEXT ACTIVATED",
-          "# Claude will now provide FULL FILE PATHS for maximum clickability:",
-          "# ✅ Use: `config.py:25` instead of just `config`",
-          "# ✅ Use: `utils.py:150` instead of just `function_name`", 
-          "# ✅ Everything should be clickable with file paths!",
-          ""
-        }
-        
-        local current_lines = vim.api.nvim_buf_line_count(bufnr)
-        vim.api.nvim_buf_set_lines(bufnr, current_lines, current_lines, false, indicator_lines)
-        
-        logger.info("terminal_links", "Clickable context set for terminal buffer: " .. bufnr)
+        -- Send the context file as an @ mention
+        local success, error_msg = claudecode_main.send_at_mention(temp_file, nil, nil, "auto_context")
+        if success then
+          logger.info("terminal_links", "Sent clickable context to Claude via @ mention")
+          
+          -- Clean up temp file after a delay
+          vim.defer_fn(function()
+            pcall(os.remove, temp_file)
+          end, 5000)
+        else
+          logger.warn("terminal_links", "Failed to send context via @ mention: " .. (error_msg or "unknown"))
+          -- Fall back to just showing in terminal
+          M.show_context_in_terminal(bufnr)
+        end
       else
-        logger.warn("terminal_links", "Failed to set clickable context")
+        logger.warn("terminal_links", "Failed to create temp context file")
+        M.show_context_in_terminal(bufnr)
       end
     else
-      logger.warn("terminal_links", "setClickableContext tool not available")
+      logger.warn("terminal_links", "claudecode main module not available for @ mention")
+      M.show_context_in_terminal(bufnr)
     end
-  end, 3000) -- Wait 3 seconds for terminal to be ready
+  end, 5000) -- Wait 5 seconds for terminal and server to be ready
+end
+
+---Show context visually in terminal (fallback method)
+---@param bufnr number The terminal buffer number
+function M.show_context_in_terminal(bufnr)
+  local indicator_lines = {
+    "",
+    "# 🔗 CLICKABLE LINKS CONTEXT ACTIVATED",
+    "# Claude should provide FULL FILE PATHS for maximum clickability:",
+    "# ✅ Ask: 'Show me the config variable with its file path like `config.py:25`'",
+    "# ✅ Request: 'Include full paths for all variables and functions'",
+    "# ✅ Everything should be clickable with file paths!",
+    ""
+  }
+  
+  local current_lines = vim.api.nvim_buf_line_count(bufnr)
+  vim.api.nvim_buf_set_lines(bufnr, current_lines, current_lines, false, indicator_lines)
+  
+  logger.info("terminal_links", "Added clickable context visual indicator to terminal buffer: " .. bufnr)
 end
 
 ---Get status information

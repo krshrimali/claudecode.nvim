@@ -1145,6 +1145,50 @@ so everything is clickable in Neovim."
     end, {
       desc = "Show examples of prompts that generate clickable references",
     })
+
+    vim.api.nvim_create_user_command("ClaudeCodeSendContext", function()
+      -- Manually send clickable context to Claude
+      local context_message = [[Please format all variable and function references with their full file paths for maximum clickability in Neovim.
+
+CRITICAL FORMATTING RULES:
+• Instead of just `variable_name`, use `file.py:line` (clickable!)
+• Instead of just `function_name`, use `utils.py:150` (clickable!)
+• Always include file paths and line numbers when referencing code
+• Format: `filename.ext:line_number` or `path/to/file.py:line:col`
+
+Examples:
+- "The `config` variable in `settings.py:25` controls..."
+- "Check the `handle_request` function at `server.py:45`"
+- "Error in `utils.py:150` - the validation logic needs updating"
+
+This makes everything clickable for instant navigation! Please use this format in all your responses.]]
+
+      -- Create a temporary file with the context message
+      local temp_file = vim.fn.tempname() .. ".md"
+      local file = io.open(temp_file, "w")
+      if file then
+        file:write("# Clickable Links Context\n\n")
+        file:write(context_message)
+        file:close()
+        
+        -- Send the context file as an @ mention
+        local success, error_msg = M.send_at_mention(temp_file, nil, nil, "manual_context")
+        if success then
+          vim.notify("✅ Sent clickable context to Claude! Variables should now include full file paths.", vim.log.levels.INFO)
+          
+          -- Clean up temp file after a delay
+          vim.defer_fn(function()
+            pcall(os.remove, temp_file)
+          end, 5000)
+        else
+          vim.notify("❌ Failed to send context: " .. (error_msg or "unknown"), vim.log.levels.ERROR)
+        end
+      else
+        vim.notify("❌ Failed to create context file", vim.log.levels.ERROR)
+      end
+    end, {
+      desc = "Manually send clickable context instructions to Claude",
+    })
   end
 end
 

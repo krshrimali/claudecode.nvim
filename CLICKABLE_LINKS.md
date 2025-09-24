@@ -100,6 +100,9 @@ Show status information about active link setups.
 ### `:ClaudeCodeSetClickableContext`
 Manually set context for Claude to generate clickable references with full file paths.
 
+### `:ClaudeCodeSendContext`
+**MOST IMPORTANT**: Directly send clickable formatting instructions to Claude via @ mention.
+
 ### `:ClaudeCodePromptExample`
 Show examples of effective prompts that generate clickable references.
 
@@ -130,12 +133,13 @@ The system uses pattern matching to identify potential links in text:
 ## Getting Variable References to Work
 
 ### The Problem
-Claude doesn't automatically format variable references in a clickable way. You need to guide it.
+Claude doesn't automatically format variable references in a clickable way. You need to guide it to provide **full file paths**.
 
-### The Solution
-1. **Auto-Context (Recommended)**: Set `auto_set_context = true` in config (default)
-2. **Manual Context**: Run `:ClaudeCodeSetClickableContext` command
-3. **Ask Claude**: Request "Use the setClickableContext tool to enable clickable references"
+### The Solution (ENABLED BY DEFAULT)
+1. **Auto-Context (DEFAULT)**: System automatically sends context to Claude when terminal starts
+2. **Manual Send**: Run `:ClaudeCodeSendContext` to send context immediately
+3. **Manual Setup**: Run `:ClaudeCodeSetClickableContext` command
+4. **Ask Claude**: Request "Use the setClickableContext tool to enable clickable references"
 
 ### Example Requests
 Instead of asking:
@@ -157,9 +161,10 @@ Or:
 ## Troubleshooting
 
 ### Variable References Not Clickable
-1. Run `:ClaudeCodeSetClickableContext` to set formatting context
-2. Ask Claude to "use backticks around variable names like `variable_name`"
-3. Use the `setClickableContext` tool in your requests
+1. **FIRST TRY**: Run `:ClaudeCodeSendContext` to send instructions directly to Claude
+2. Run `:ClaudeCodeSetClickableContext` to set formatting context
+3. Ask Claude: "Please include full file paths like `config.py:25` for all variables"
+4. Use the `setClickableContext` tool in your requests
 
 ### Links Not Highlighting
 1. Check if feature is enabled: `:ClaudeCodeLinksStatus`

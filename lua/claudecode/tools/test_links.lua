@@ -37,7 +37,9 @@ local function handler(params)
   
   local test_output = {}
   
-  table.insert(test_output, "=== Clickable Links Test Output ===\n")
+  table.insert(test_output, "=== Clickable Links Test Output ===")
+  table.insert(test_output, "Position cursor on any reference below and press <Enter> to navigate!")
+  table.insert(test_output, "")
   
   if include_files then
     table.insert(test_output, "📁 FILE REFERENCES:")

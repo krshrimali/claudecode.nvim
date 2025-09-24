@@ -365,6 +365,14 @@ function M.setup(opts)
   local diff = require("claudecode.diff")
   diff.setup(M.state.config)
 
+  -- Setup terminal links for clickable references
+  local terminal_links_ok, terminal_links = pcall(require, "claudecode.terminal_links")
+  if terminal_links_ok then
+    terminal_links.setup(M.state.config.terminal_links or {})
+  else
+    logger.warn("init", "Failed to load terminal_links module: " .. tostring(terminal_links))
+  end
+
   if M.state.config.auto_start then
     M.start(false) -- Suppress notification on auto-start
   end
@@ -1047,6 +1055,43 @@ function M._create_commands()
     nargs = "*",
     desc = "Select and open Claude terminal with chosen model and optional arguments",
   })
+
+  -- Terminal links commands
+  local terminal_links_ok, terminal_links = pcall(require, "claudecode.terminal_links")
+  if terminal_links_ok then
+    vim.api.nvim_create_user_command("ClaudeCodeLinksEnable", function()
+      terminal_links.enable()
+      vim.notify("Claude Code terminal links enabled", vim.log.levels.INFO)
+    end, {
+      desc = "Enable clickable links in Claude Code terminal output",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksDisable", function()
+      terminal_links.disable()
+      vim.notify("Claude Code terminal links disabled", vim.log.levels.INFO)
+    end, {
+      desc = "Disable clickable links in Claude Code terminal output",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksSetup", function()
+      terminal_links.setup_current_buffer()
+    end, {
+      desc = "Manually setup clickable links for current terminal buffer",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeLinksStatus", function()
+      local status = terminal_links.get_status()
+      local msg = string.format(
+        "Terminal Links: %s\nActive buffers: %d\nBuffers: %s",
+        status.enabled and "Enabled" or "Disabled",
+        status.buffer_count,
+        table.concat(status.active_buffers, ", ")
+      )
+      vim.notify(msg, vim.log.levels.INFO)
+    end, {
+      desc = "Show status of clickable links in terminal buffers",
+    })
+  end
 end
 
 M.open_with_model = function(additional_args)

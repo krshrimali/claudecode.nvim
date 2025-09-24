@@ -33,6 +33,14 @@ M.defaults = {
     { name = "Claude Haiku 3.5 (Latest)", value = "haiku" },
   },
   terminal = nil, -- Will be lazy-loaded to avoid circular dependency
+  terminal_links = {
+    enabled = true,
+    auto_setup_terminal = true,
+    highlight_links = true,
+    update_interval = 500, -- ms
+    click_keymap = "<CR>",
+    preview_keymap = "gp",
+  },
 }
 
 ---Validates the provided configuration table.

@@ -72,19 +72,44 @@ local function handler(params)
     local file_path = vim.api.nvim_buf_get_name(diagnostic.bufnr)
     -- Ensure we only include diagnostics with valid file paths
     if file_path and file_path ~= "" then
+      local line_num = diagnostic.lnum + 1 -- Convert to 1-indexed
+      local char_num = diagnostic.col + 1 -- Convert to 1-indexed
+      
+      -- Create a clickable file reference
+      local clickable_ref = file_path .. ":" .. line_num .. ":" .. char_num
+      
+      -- Create severity string for better display
+      local severity_names = {
+        [vim.diagnostic.severity.ERROR] = "ERROR",
+        [vim.diagnostic.severity.WARN] = "WARNING", 
+        [vim.diagnostic.severity.INFO] = "INFO",
+        [vim.diagnostic.severity.HINT] = "HINT"
+      }
+      local severity_name = severity_names[diagnostic.severity] or "UNKNOWN"
+      
+      -- Format as both structured JSON and human-readable text
+      local diagnostic_json = vim.json.encode({
+        filePath = file_path,
+        line = line_num,
+        character = char_num,
+        severity = diagnostic.severity,
+        message = diagnostic.message,
+        source = diagnostic.source,
+      })
+      
+      local human_readable = string.format(
+        "[%s] %s:%d:%d - %s%s",
+        severity_name,
+        clickable_ref,
+        line_num,
+        char_num,
+        diagnostic.message,
+        diagnostic.source and (" (" .. diagnostic.source .. ")") or ""
+      )
+      
       table.insert(formatted_diagnostics, {
         type = "text",
-        -- json encode this
-        text = vim.json.encode({
-          -- Use the file path and diagnostic information
-          filePath = file_path,
-          -- Convert line and column to 1-indexed
-          line = diagnostic.lnum + 1,
-          character = diagnostic.col + 1,
-          severity = diagnostic.severity, -- e.g., vim.diagnostic.severity.ERROR
-          message = diagnostic.message,
-          source = diagnostic.source,
-        }),
+        text = human_readable .. "\n" .. diagnostic_json,
       })
     end
   end

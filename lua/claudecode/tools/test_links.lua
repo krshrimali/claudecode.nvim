@@ -68,9 +68,12 @@ local function handler(params)
     
     table.insert(test_output, "🔤 SYMBOL/VARIABLE REFERENCES:")
     table.insert(test_output, "• The function `handle_link_click` is defined in the links module")
-    table.insert(test_output, "• Variable 'config' contains the configuration settings")
-    table.insert(test_output, "• Check the \"parse_file_reference\" function implementation")
+    table.insert(test_output, "• Variable `config` contains the configuration settings")
+    table.insert(test_output, "• Check the `parse_file_reference` function implementation")
     table.insert(test_output, "• The `M.setup` method initializes the module")
+    table.insert(test_output, "• Method call `vim.api.nvim_buf_get_lines` reads buffer content")
+    table.insert(test_output, "• Object property `terminal.state.active` tracks status")
+    table.insert(test_output, "• Class method `Logger.debug` outputs debug messages")
     table.insert(test_output, "")
   end
   

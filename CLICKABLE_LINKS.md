@@ -97,8 +97,14 @@ Manually setup clickable links for the current terminal buffer.
 ### `:ClaudeCodeLinksStatus`
 Show status information about active link setups.
 
+### `:ClaudeCodeSetClickableContext`
+Manually set context for Claude to generate clickable references.
+
 ### `:testLinks`
 Generate test output with various clickable reference types (available as Claude tool).
+
+### `:setClickableContext`
+Tool that provides Claude with formatting guidance for clickable references.
 
 ## Technical Details
 
@@ -118,7 +124,32 @@ The system uses pattern matching to identify potential links in text:
 - Enhanced diagnostic output includes clickable references
 - Tool responses are enhanced with clickable file references where appropriate
 
+## Getting Variable References to Work
+
+### The Problem
+Claude doesn't automatically format variable references in a clickable way. You need to guide it.
+
+### The Solution
+1. **Auto-Context (Recommended)**: Set `auto_set_context = true` in config (default)
+2. **Manual Context**: Run `:ClaudeCodeSetClickableContext` command
+3. **Ask Claude**: Request "Use the setClickableContext tool to enable clickable references"
+
+### Example Requests
+Instead of asking:
+> "What does the config variable do?"
+
+Ask:
+> "Please use backticks around variable names. What does the `config` variable do?"
+
+Or:
+> "Explain the `handle_request` function and how it uses the `settings` object."
+
 ## Troubleshooting
+
+### Variable References Not Clickable
+1. Run `:ClaudeCodeSetClickableContext` to set formatting context
+2. Ask Claude to "use backticks around variable names like `variable_name`"
+3. Use the `setClickableContext` tool in your requests
 
 ### Links Not Highlighting
 1. Check if feature is enabled: `:ClaudeCodeLinksStatus`

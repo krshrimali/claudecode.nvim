@@ -52,6 +52,7 @@ function M.register_all()
   M.register(require("claudecode.tools.check_document_dirty"))
   M.register(require("claudecode.tools.save_document"))
   M.register(require("claudecode.tools.test_links"))
+  M.register(require("claudecode.tools.set_clickable_context"))
 
   -- Register internal tools without schemas (not exposed via MCP)
   M.register(require("claudecode.tools.close_tab"))

@@ -42,6 +42,7 @@ M.defaults = {
     preview_keymap = "gp",
     enable_symbol_links = true,
     symbol_keymap = "gd",
+    auto_set_context = true, -- Automatically provide clickable context to Claude
   },
 }
 

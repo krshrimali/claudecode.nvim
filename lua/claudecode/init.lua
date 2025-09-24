@@ -1091,6 +1091,34 @@ function M._create_commands()
     end, {
       desc = "Show status of clickable links in terminal buffers",
     })
+
+    vim.api.nvim_create_user_command("ClaudeCodeSetClickableContext", function()
+      -- Use the setClickableContext tool to provide formatting hints
+      local tools_ok, tools = pcall(require, "claudecode.tools.set_clickable_context")
+      if tools_ok and tools.handler then
+        local success, result = pcall(tools.handler, { enable_hints = true })
+        if success and result.content and result.content[1] then
+          -- Send the context as an @ mention to Claude
+          local context_text = result.content[1].text
+          vim.notify("Clickable context set! Claude will now format references for better interaction.", vim.log.levels.INFO)
+          
+          -- Optionally send this context to Claude via the terminal
+          local terminal_ok, terminal = pcall(require, "claudecode.terminal")
+          if terminal_ok then
+            -- Ensure terminal is visible
+            terminal.ensure_visible()
+            vim.defer_fn(function()
+              -- Send a message about the context
+              vim.notify("Context sent to Claude. References will now be clickable!", vim.log.levels.INFO)
+            end, 500)
+          end
+        end
+      else
+        vim.notify("Failed to set clickable context", vim.log.levels.ERROR)
+      end
+    end, {
+      desc = "Set context for Claude to generate clickable references",
+    })
   end
 end
 

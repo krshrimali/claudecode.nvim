@@ -39,6 +39,16 @@ local PATTERNS = {
     [[`[%w_][%w%._]*`]], -- `variable_name` or `function_name`
     [['[%w_][%w%._]*']], -- 'variable_name' 
     [["[%w_][%w%._]*"]], -- "variable_name"
+    -- More flexible patterns for natural language
+    [[`[%w_][%w%._%-]*[%w_]`]], -- `multi-word_variable`
+    [['[%w_][%w%._%-]*[%w_]']], -- 'multi-word_variable'
+    [["[%w_][%w%._%-]*[%w_]"]], -- "multi-word_variable"
+    -- Method calls and object properties
+    [[`[%w_]+%.[%w_]+`]], -- `object.method`
+    [[`[%w_]+%.[%w_]+%(%)` ]], -- `function.call()`
+    -- Common programming patterns
+    [[`[%w_]+::[%w_]+`]], -- `namespace::function` (C++)
+    [[`[%w_]+%->[%w_]+`]], -- `pointer->member` (C/C++)
   }
 }
 

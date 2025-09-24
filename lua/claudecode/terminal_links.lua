@@ -120,6 +120,11 @@ function M.setup_terminal_buffer(bufnr)
   -- Start periodic highlighting updates
   M.start_highlighting_updates(bufnr)
   
+  -- Auto-set clickable context if enabled
+  if config.auto_set_context then
+    M.auto_set_clickable_context(bufnr)
+  end
+  
   -- Set up buffer-local autocommands for text changes
   local group = vim.api.nvim_create_augroup("ClaudeCodeTerminalLinks_" .. bufnr, { clear = true })
   
@@ -274,6 +279,46 @@ function M.disable()
   logger.info("terminal_links", "Terminal links disabled")
 end
 
+---Automatically set clickable context for Claude
+---@param bufnr number The terminal buffer number
+function M.auto_set_clickable_context(bufnr)
+  -- Delay the context setting to allow terminal to fully initialize
+  vim.defer_fn(function()
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    
+    logger.debug("terminal_links", "Auto-setting clickable context for buffer: " .. bufnr)
+    
+    -- Use the setClickableContext tool to provide formatting guidance
+    local tools_ok, tools = pcall(require, "claudecode.tools.set_clickable_context")
+    if tools_ok and tools.handler then
+      local success, result = pcall(tools.handler, { enable_hints = true })
+      if success and result.content and result.content[1] then
+        local context_text = result.content[1].text
+        
+        -- Add a visual indicator in the terminal buffer
+        local indicator_lines = {
+          "",
+          "# 🔗 Clickable Links Context Set",
+          "# Claude will now format references with backticks for clickability",
+          "# Examples: `variable_name`, `function()`, `file.py:42`",
+          ""
+        }
+        
+        local current_lines = vim.api.nvim_buf_line_count(bufnr)
+        vim.api.nvim_buf_set_lines(bufnr, current_lines, current_lines, false, indicator_lines)
+        
+        logger.info("terminal_links", "Clickable context set for terminal buffer: " .. bufnr)
+      else
+        logger.warn("terminal_links", "Failed to set clickable context")
+      end
+    else
+      logger.warn("terminal_links", "setClickableContext tool not available")
+    end
+  end, 3000) -- Wait 3 seconds for terminal to be ready
+end
+
 ---Get status information
 ---@return table status Status information about terminal links
 function M.get_status()
@@ -288,6 +333,7 @@ function M.get_status()
     enabled = config.enabled,
     active_buffers = active_buffers,
     buffer_count = #active_buffers,
+    auto_set_context = config.auto_set_context,
   }
 end
 

@@ -204,10 +204,20 @@ function M.update_buffer_highlighting(bufnr)
     local detected_links = links.detect_links(line)
     
     for _, link in ipairs(detected_links) do
+      -- Choose highlight group based on link type
+      local hl_group = "ClaudeCodeLink" -- default
+      if link.type == "file" then
+        hl_group = "ClaudeCodeFileLink"
+      elseif link.type == "url" then
+        hl_group = "ClaudeCodeUrlLink"
+      elseif link.type == "symbol" then
+        hl_group = "ClaudeCodeSymbolLink"
+      end
+      
       vim.api.nvim_buf_add_highlight(
         bufnr,
         -1, -- use default namespace
-        "ClaudeCodeLink",
+        hl_group,
         line_num,
         link.start_pos - 1, -- 0-based column start
         link.end_pos -- 0-based column end

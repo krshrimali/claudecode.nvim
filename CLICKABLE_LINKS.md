@@ -11,6 +11,7 @@ The clickable links feature automatically detects and highlights various types o
 ### File References
 - **Absolute paths**: `/path/to/file.ext`
 - **Relative paths**: `./path/file.ext`, `../path/file.ext`, `path/file.ext`
+- **Complex paths**: `project//subdir/file.ext` (handles double slashes)
 - **With line numbers**: `file.ext:42` or `file.ext:42:15`
 - **Diagnostic format**: `[ERROR] file.ext:42:15 - message`
 
@@ -18,14 +19,22 @@ The clickable links feature automatically detects and highlights various types o
 - **HTTP/HTTPS**: `https://example.com`
 - **File URLs**: `file:///path/to/file`
 
+### Symbols/Variables
+- **Backtick format**: `function_name`, `variable_name`
+- **Quote format**: 'variable_name', "function_name"
+- **In context**: "The `handle_click` function processes events"
+
 ### Examples of Clickable References
 ```
 /workspace/lua/claudecode/init.lua:42:15
 ./src/main.lua:123
+project//subdir/service.py:100
 config.lua:56
 README.md
 https://github.com/neovim/neovim
 [ERROR] /workspace/lua/claudecode/init.lua:42:15 - undefined variable 'foo'
+The function `handle_link_click` processes user interactions
+Check the 'config' variable for settings
 ```
 
 ## Usage
@@ -37,6 +46,7 @@ The clickable links feature is automatically enabled for Claude Code terminal bu
 1. **Position cursor** on any highlighted link
 2. **Press `<Enter>`** to open/navigate to the reference
 3. **Press `gp`** to preview file references (opens in preview window)
+4. **Press `gd`** to go to symbol definition (for symbol references)
 
 ### File References
 - Opens the file in the main editor window
@@ -47,6 +57,12 @@ The clickable links feature is automatically enabled for Claude Code terminal bu
 ### URL References
 - Opens URLs in your default system browser
 - Supports `http://`, `https://`, and `file://` protocols
+
+### Symbol References
+- Searches for symbol definitions in the current buffer first
+- Falls back to LSP workspace symbol search if available
+- Uses vim's built-in search as final fallback
+- Supports function definitions, variable assignments, class definitions
 
 ## Configuration
 
@@ -61,6 +77,8 @@ require("claudecode").setup({
     update_interval = 500,       -- Update highlighting every 500ms
     click_keymap = "<CR>",       -- Key to activate links
     preview_keymap = "gp",       -- Key to preview file links
+    enable_symbol_links = true,  -- Enable symbol/variable link detection
+    symbol_keymap = "gd",        -- Key for symbol go-to-definition
   }
 })
 ```

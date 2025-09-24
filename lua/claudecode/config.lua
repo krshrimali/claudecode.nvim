@@ -40,6 +40,8 @@ M.defaults = {
     update_interval = 500, -- ms
     click_keymap = "<CR>",
     preview_keymap = "gp",
+    enable_symbol_links = true,
+    symbol_keymap = "gd",
   },
 }
 

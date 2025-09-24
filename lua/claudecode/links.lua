@@ -13,6 +13,10 @@ local PATTERNS = {
     [[/[%w%._%-/]+%.%w+:?%d*:?%d*]],
     -- Relative paths: ./path/file.ext or path/file.ext or ../path/file.ext
     [[%.?%.?/?[%w%._%-/]+%.%w+:?%d*:?%d*]],
+    -- Paths with double slashes: path//subpath/file.ext
+    [[%w+[%w%._%-/]*//[%w%._%-/]+%.%w+:?%d*:?%d*]],
+    -- Complex paths with multiple segments
+    [[%w+[%w%._%-/]+%.%w+:?%d*:?%d*]],
     -- Simple filename with extension
     [[%w+%.%w+:?%d*:?%d*]],
   },
@@ -29,6 +33,12 @@ local PATTERNS = {
   -- Line references in format file:line or file:line:col
   line_ref = {
     [[([%w%._%-/]+):(%d+):?(%d*)]],
+  },
+  -- Variable/symbol references (when surrounded by context indicators)
+  symbol = {
+    [[`[%w_][%w%._]*`]], -- `variable_name` or `function_name`
+    [['[%w_][%w%._]*']], -- 'variable_name' 
+    [["[%w_][%w%._]*"]], -- "variable_name"
   }
 }
 
@@ -37,10 +47,12 @@ local config = {
   enable_file_links = true,
   enable_url_links = true,
   enable_git_links = true,
+  enable_symbol_links = true,
   auto_highlight = true,
   highlight_group = "Underlined",
   click_keymap = "<CR>",
   preview_keymap = "gp",
+  symbol_keymap = "gd", -- Go to definition for symbols
 }
 
 ---Setup the links module with user configuration
@@ -50,10 +62,25 @@ function M.setup(user_config)
     config = vim.tbl_deep_extend("force", config, user_config)
   end
   
-  -- Create highlight group if it doesn't exist
+  -- Create highlight groups if they don't exist
   if config.auto_highlight then
     vim.api.nvim_set_hl(0, "ClaudeCodeLink", {
       fg = "#569cd6", -- Light blue
+      underline = true,
+      default = true
+    })
+    vim.api.nvim_set_hl(0, "ClaudeCodeFileLink", {
+      fg = "#569cd6", -- Light blue  
+      underline = true,
+      default = true
+    })
+    vim.api.nvim_set_hl(0, "ClaudeCodeUrlLink", {
+      fg = "#4ec9b0", -- Teal
+      underline = true,
+      default = true
+    })
+    vim.api.nvim_set_hl(0, "ClaudeCodeSymbolLink", {
+      fg = "#dcdcaa", -- Yellow
       underline = true,
       default = true
     })
@@ -115,12 +142,37 @@ local function open_file_reference(ref)
   
   -- Check if file exists
   if not file_exists(expanded_path) then
-    -- Try relative to current working directory
-    local cwd_path = vim.fn.getcwd() .. "/" .. file_path
-    if file_exists(cwd_path) then
-      expanded_path = cwd_path
-    else
+    -- Try various path resolution strategies
+    local candidates = {
+      vim.fn.getcwd() .. "/" .. file_path,  -- Relative to CWD
+      file_path:gsub("//", "/"),            -- Normalize double slashes
+      vim.fn.getcwd() .. "/" .. file_path:gsub("//", "/"), -- CWD + normalized
+    }
+    
+    -- Try to find the file by searching in common directories
+    local workspace_root = vim.fn.getcwd()
+    if file_path:match("^%w+//") then
+      -- For patterns like "desco_llm//doclab/ui/semantic_search/service.py"
+      local parts = vim.split(file_path, "//", {plain = true})
+      if #parts >= 2 then
+        -- Try workspace_root/parts[2]
+        table.insert(candidates, workspace_root .. "/" .. parts[2])
+        -- Try just parts[2] (relative)
+        table.insert(candidates, parts[2])
+      end
+    end
+    
+    expanded_path = nil
+    for _, candidate in ipairs(candidates) do
+      if file_exists(candidate) then
+        expanded_path = candidate
+        break
+      end
+    end
+    
+    if not expanded_path then
       logger.warn("links", "File not found: " .. file_path)
+      logger.debug("links", "Tried candidates: " .. vim.inspect(candidates))
       vim.notify("File not found: " .. file_path, vim.log.levels.WARN)
       return false
     end
@@ -185,6 +237,58 @@ local function open_url(url)
   return true
 end
 
+---Handle symbol/variable reference by searching for definition
+---@param symbol_name string The symbol name to search for
+---@return boolean success True if symbol was found/handled
+local function handle_symbol_reference(symbol_name)
+  -- Remove surrounding quotes/backticks
+  symbol_name = symbol_name:gsub("^[`'\"]", ""):gsub("[`'\"]$", "")
+  
+  logger.debug("links", "Searching for symbol: " .. symbol_name)
+  
+  -- Try LSP go-to-definition first if available
+  if vim.lsp.buf.definition then
+    -- Search for the symbol in the current buffer first
+    local current_buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
+    
+    for line_num, line in ipairs(lines) do
+      -- Look for symbol definitions (function, variable declarations, etc.)
+      local patterns = {
+        "def%s+" .. symbol_name .. "%s*%(", -- Python function
+        "function%s+" .. symbol_name .. "%s*%(", -- JavaScript/Lua function
+        "class%s+" .. symbol_name .. "%s*[%({]", -- Class definition
+        symbol_name .. "%s*=%s*", -- Variable assignment
+        "let%s+" .. symbol_name .. "%s*=", -- Let assignment
+        "const%s+" .. symbol_name .. "%s*=", -- Const assignment
+        "var%s+" .. symbol_name .. "%s*=", -- Var assignment
+      }
+      
+      for _, pattern in ipairs(patterns) do
+        if line:match(pattern) then
+          -- Found a potential definition, jump to it
+          vim.api.nvim_win_set_cursor(0, {line_num, 0})
+          vim.cmd("normal! zz") -- Center the line
+          vim.notify("Found definition of: " .. symbol_name, vim.log.levels.INFO)
+          return true
+        end
+      end
+    end
+    
+    -- If not found in current buffer, try LSP workspace symbol search
+    if vim.lsp.buf.workspace_symbol then
+      vim.lsp.buf.workspace_symbol(symbol_name)
+      return true
+    end
+  end
+  
+  -- Fallback: use vim's built-in search
+  local search_pattern = "\\<" .. symbol_name .. "\\>"
+  vim.fn.search(search_pattern)
+  vim.notify("Searched for symbol: " .. symbol_name, vim.log.levels.INFO)
+  return true
+end
+
 ---Detect links in a given text
 ---@param text string The text to analyze
 ---@return table links Array of detected links with type, text, start_pos, end_pos
@@ -238,6 +342,27 @@ function M.detect_links(text)
     end
   end
   
+  if config.enable_symbol_links then
+    -- Detect symbols/variables
+    for _, pattern in ipairs(PATTERNS.symbol) do
+      local start_pos = 1
+      while true do
+        local match_start, match_end = text:find(pattern, start_pos)
+        if not match_start then break end
+        
+        local match_text = text:sub(match_start, match_end)
+        table.insert(links, {
+          type = "symbol",
+          text = match_text,
+          start_pos = match_start,
+          end_pos = match_end
+        })
+        
+        start_pos = match_end + 1
+      end
+    end
+  end
+  
   return links
 end
 
@@ -249,6 +374,8 @@ function M.handle_link_click(link)
     return open_file_reference(link.ref)
   elseif link.type == "url" then
     return open_url(link.text)
+  elseif link.type == "symbol" then
+    return handle_symbol_reference(link.text)
   else
     logger.warn("links", "Unknown link type: " .. (link.type or "nil"))
     return false
@@ -324,16 +451,53 @@ function M.setup_buffer_keybindings(bufnr)
     desc = "Open link under cursor or default action"
   })
   
+  -- Set up symbol navigation keymap (alternative to Enter for symbols)
+  vim.keymap.set("n", config.symbol_keymap, function()
+    local link = M.get_link_under_cursor()
+    if link and link.type == "symbol" then
+      M.handle_link_click(link)
+    else
+      -- Fallback to LSP go-to-definition if available
+      if vim.lsp.buf.definition then
+        vim.lsp.buf.definition()
+      else
+        vim.notify("No symbol under cursor or LSP not available", vim.log.levels.WARN)
+      end
+    end
+  end, {
+    buffer = bufnr,
+    desc = "Go to definition of symbol under cursor"
+  })
+  
   -- Set up preview keymap (for file links only)
   vim.keymap.set("n", config.preview_keymap, function()
     local link = M.get_link_under_cursor()
     if link and link.type == "file" then
       -- Open in preview window
       local ref = link.ref
-      vim.cmd("pedit " .. vim.fn.fnameescape(ref.file))
+      local expanded_path = vim.fn.expand(ref.file)
+      
+      -- Check if file exists before trying to preview
+      if not file_exists(expanded_path) then
+        -- Try relative to current working directory
+        local cwd_path = vim.fn.getcwd() .. "/" .. ref.file
+        if file_exists(cwd_path) then
+          expanded_path = cwd_path
+        else
+          vim.notify("File not found for preview: " .. ref.file, vim.log.levels.WARN)
+          return
+        end
+      end
+      
+      vim.cmd("pedit " .. vim.fn.fnameescape(expanded_path))
       if ref.line then
         vim.cmd("wincmd P") -- Go to preview window
-        vim.api.nvim_win_set_cursor(0, {ref.line, (ref.col or 1) - 1})
+        -- Safely set cursor position with bounds checking
+        local line_count = vim.api.nvim_buf_line_count(0)
+        local safe_line = math.min(ref.line, line_count)
+        local safe_col = math.max(0, (ref.col or 1) - 1)
+        
+        pcall(vim.api.nvim_win_set_cursor, 0, {safe_line, safe_col})
         vim.cmd("normal! zz")
         vim.cmd("wincmd p") -- Return to original window
       end
